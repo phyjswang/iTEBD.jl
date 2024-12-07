@@ -1,18 +1,18 @@
 #---------------------------------------------------------------------------------------------------
-# iMPS 
+# iMPS
 #---------------------------------------------------------------------------------------------------
 export iMPS
 """
     iMPS
 
-Infinite MPS. 
+Infinite MPS.
 
 Parameters:
 - Γ : Vector of tensors.
 - λ : Vector of Schmidt values.
 - n : Number of tensors in the periodic blocks.
 
-Note that the tensor `Γ` has absorbed the `λ` in, so it's in right canonical form.  
+Note that the tensor `Γ` has absorbed the `λ` in, so it's in right canonical form.
 """
 struct iMPS{T<:Number}
     Γ::Vector{Array{T, 3}}
@@ -48,7 +48,7 @@ function getindex(mps::iMPS, i::Integer)
 end
 #---------------------------------------------------------------------------------------------------
 function setindex!(
-    mps::iMPS, 
+    mps::iMPS,
     v::Tuple{<:AbstractArray{<:Number, 3}, <:AbstractVector{<:Real}},
     i::Integer
 )
@@ -118,44 +118,46 @@ end
 # 3. gtrm       : Transfer matrix of the block periodic iMPS.
 # 4. entropy    : Return entanglement entropy across bond i.
 #---------------------------------------------------------------------------------------------------
+export conj
 function conj(mps::iMPS)
     Γ, λ, n = get_data(mps)
     iMPS(conj.(Γ), λ, n)
 end
 #---------------------------------------------------------------------------------------------------
-export applygate!
-function applygate!(
-    mps::iMPS,
-    G::AbstractMatrix{<:Number};
-    renormalize::Bool=false,
-    bound::Int64=BOUND,
-    tol::Float64=SVDTOL
-)
-    Γ, λ, n = get_data(mps)
-    Γ_new, λ_new = tensor_applygate!(G, Γ, λ[n], λ[n], renormalize=renormalize, bound=bound, tol=tol)
-    Γ .= Γ_new
-    λ .= λ_new
-    mps
-end
+# export applygate!
+# function applygate!(
+#     mps::iMPS,
+#     G::AbstractMatrix{<:Number};
+#     renormalize::Bool=false,
+#     maxdim::Int64=MAXDIM,
+#     cutoff::Float64=CUTOFF
+# )
+#     Γ, λ, n = get_data(mps)
+#     Γ_new, λ_new = tensor_applygate!(G, Γ, λ[n], renormalize=renormalize, maxdim=maxdim, cutoff=cutoff)
+#     Γ .= Γ_new
+#     λ .= λ_new
+#     mps
+# end
+# #---------------------------------------------------------------------------------------------------
+# function applygate!(
+#     mps::iMPS,
+#     G::AbstractMatrix{<:Number},
+#     inds::AbstractVector{<:Integer};
+#     renormalize::Bool=false,
+#     maxdim::Int64=MAXDIM,
+#     cutoff::Float64=CUTOFF
+# )
+#     n = mps.n
+#     indm = mod.(inds .- 1, n) .+ 1
+#     indl = mod((inds[1]-2), n) + 1
+#     Γs, λl = mps.Γ[indm], mps.λ[indl]
+#     Γs_new, λs_new = tensor_applygate!(G, Γs, λl; renormalize, maxdim, cutoff)
+#     mps.Γ[indm] .= Γs_new
+#     mps.λ[indm] .= λs_new
+#     mps
+# end
 #---------------------------------------------------------------------------------------------------
-function applygate!(
-    mps::iMPS,
-    G::AbstractMatrix{<:Number},
-    inds::AbstractVector{<:Integer};
-    renormalize::Bool=false,
-    bound::Int64=BOUND,
-    tol::Float64=SVDTOL
-)
-    n = mps.n
-    indm = mod.(inds .- 1, n) .+ 1
-    indl, indr = mod((inds[1]-2), n) + 1, indm[end]
-    Γs, λl, λr = mps.Γ[indm], mps.λ[indl], mps.λ[indr]
-    Γs_new, λs_new = tensor_applygate!(G, Γs, λl, λr, renormalize=renormalize, bound=bound, tol=tol)
-    mps.Γ[indm] .= Γs_new
-    mps.λ[indm] .= λs_new
-    mps
-end
-#---------------------------------------------------------------------------------------------------
+export gtrm
 gtrm(mps1::iMPS, mps2::iMPS) = gtrm(mps1.Γ, mps2.Γ)
 #---------------------------------------------------------------------------------------------------
 export group
@@ -167,11 +169,11 @@ function decomposition!(
     λ::AbstractVector{<:Real},
     n::Integer;
     renormalize::Bool=false,
-    bound::Integer=BOUND,
-    tol::Real=SVDTOL
+    maxdim::Integer=MAXDIM,
+    cutoff::Real=CUTOFF
 )
     tensor_lmul!(λ, Γ)
-    Γs, λs = tensor_decomp!(Γ, λ, λ, n, renormalize=renormalize, bound=bound, tol=tol)
+    Γs, λs = tensor_decomp!(Γ, λ, n, renormalize=renormalize, maxdim=maxdim, cutoff=cutoff)
     iMPS(Γs, λs, n)
 end
 #---------------------------------------------------------------------------------------------------

@@ -28,7 +28,7 @@ function tensor_rmul!(Γ::AbstractArray, λ::AbstractVector{<:Number})
 end
 #---------------------------------------------------------------------------------------------------
 """
-    tensor_umul(umat, Γ) 
+    tensor_umul(umat, Γ)
 
 Contraction of:
     |
@@ -45,9 +45,9 @@ end
 # Tensor Grouping
 #---------------------------------------------------------------------------------------------------
 """
-    tensor_group_2(ΓA, ΓB) 
+    tensor_group_2(ΓA, ΓB)
 
-Contraction: 
+Contraction:
     |  |           |
   --Γ--Γ--  ==>  --Γs--
 """
@@ -60,9 +60,9 @@ function tensor_group_2(ΓA::AbstractArray{<:Number, 3}, ΓB::AbstractArray{<:Nu
 end
 #---------------------------------------------------------------------------------------------------
 """
-    tensor_group_3(ΓA, ΓB, ΓC) 
+    tensor_group_3(ΓA, ΓB, ΓC)
 
-Contraction: 
+Contraction:
     |  |  |           |
   --Γ--Γ--Γ--  ==>  --Γs--
 """
@@ -75,7 +75,7 @@ function tensor_group_3(ΓA::AbstractArray, ΓB::AbstractArray, ΓC::AbstractArr
 end
 #---------------------------------------------------------------------------------------------------
 """
-    tensor_group(Γs) 
+    tensor_group(Γs)
 
 Contraction:
     |  |   ...   |           |
@@ -85,7 +85,7 @@ function tensor_group(Γs::AbstractVector{<:AbstractArray{<:Number, 3}})
     tensor = Γs[1]
     n = length(Γs)
     for i in 2:n
-        χ = size(Γs[i], 1) 
+        χ = size(Γs[i], 1)
         tensor = reshape(tensor, :, χ) * reshape(Γs[i], χ, :)
     end
     α, β = size(Γs[1], 1), size(Γs[n], 3)
@@ -102,7 +102,7 @@ SVD with compression.
 
 Parameters:
 -----------
-- mat        : matrix 
+- mat        : matrix
 - maxdim     : the maximum number of singular values to keep
 - cutoff     : set the desired truncation error of the SVD
 - renormalize: renormalize the singular values
@@ -110,7 +110,7 @@ Parameters:
 function svd_trim(
     mat::AbstractMatrix;
     maxdim::Integer=MAXDIM,
-    cutoff::Real=SVDTOL,
+    cutoff::Real=CUTOFF,
     renormalize::Bool=false
 )
     res = svd(mat)
@@ -124,6 +124,10 @@ function svd_trim(
         end
         isequal(len, maxdim) && break
         len += 1
+    end
+    if len == 0
+        @show vals
+        error("No singular value is larger than the cutoff.")
     end
     U = res.U[:, 1:len]
     S = vals[1:len]
@@ -150,7 +154,7 @@ Parameters:
 """
 function tensor_svd(
     T::AbstractArray{<:Number, 4};
-    maxdim=MAXDIM, cutoff=SVDTOL, renormalize=false
+    maxdim=MAXDIM, cutoff=CUTOFF, renormalize=false
 )
     α, d1, d2, β = size(T)
     mat = reshape(T, α*d1, :)
@@ -176,7 +180,7 @@ function tensor_decomp!(
     Γ::AbstractArray{<:Number, 3},
     λl::AbstractVector{<:Real},
     n::Integer;
-    maxdim=MAXDIM, cutoff=SVDTOL, renormalize=false
+    maxdim=MAXDIM, cutoff=CUTOFF, renormalize=false
 )
     β = size(Γ, 3)
     d = round(Int, size(Γ, 2)^(1/n))
@@ -251,7 +255,7 @@ end
 
 Transfer matrix for MPS tensor `T`.
 """
-function trm(T::AbstractArray{<:Number, 3}) 
+function trm(T::AbstractArray{<:Number, 3})
     gtrm(T, T)
 end
 #---------------------------------------------------------------------------------------------------
@@ -285,7 +289,7 @@ end
 Operator transfer matrix
   2 ---Ā₁---Ā₂- ⋯ -Āₙ--- 4
        |    |      |
-       O    O   ⋯  O 
+       O    O   ⋯  O
        |    |      |
   1 ---B₁---B₂- ⋯ -Bₙ--- 3
 """

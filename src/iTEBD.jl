@@ -3,7 +3,7 @@ module iTEBD
 # CONSTANTS
 #---------------------------------------------------------------------------------------------------
 const MAXDIM = 50
-const SVDTOL = 1e-8
+const CUTOFF = 1e-8
 const SORTTOL = 1e-3
 const ZEROTOL = 1e-20
 const KRLOV_POWER = 100
@@ -24,6 +24,5 @@ include("Schmidt.jl")
 include("Block.jl")
 include("Krylov.jl")
 include("Miscellaneous.jl")
-
 
 end
