@@ -1,5 +1,6 @@
 using DrWatson
 @quickactivate
+using MKL
 include("../src/iTEBD.jl")
 import .iTEBD: iMPS, product_iMPS, gtrm, applygate!
 using LinearAlgebra
