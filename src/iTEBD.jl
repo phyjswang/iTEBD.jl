@@ -15,9 +15,11 @@ using SparseArrays
 using TensorOperations
 using KrylovKit
 import Base: eltype, getindex, setindex!
-import LinearAlgebra: conj
+import LinearAlgebra: conj, normalize!
 
+include("abstractiMPS.jl")
 include("iMPS.jl")
+include("iMPO.jl")
 include("Gate.jl")
 include("TensorAlgebra.jl")
 include("Schmidt.jl")

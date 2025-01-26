@@ -1,6 +1,6 @@
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 # Basic Tensor Multiplication
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 """
     tensor_lmul!(λ, Γ)
 
@@ -13,7 +13,8 @@ function tensor_lmul!(λ::AbstractVector{<:Number}, Γ::AbstractArray)
     Γ_reshaped = reshape(Γ, α, :)
     lmul!(Diagonal(λ), Γ_reshaped)
 end
-#---------------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------
 """
     tensor_rmul!(Γ, λ)
 
@@ -26,7 +27,8 @@ function tensor_rmul!(Γ::AbstractArray, λ::AbstractVector{<:Number})
     Γ_reshaped = reshape(Γ, :, β)
     rmul!(Γ_reshaped, Diagonal(λ))
 end
-#---------------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------
 """
     tensor_umul(umat, Γ)
 
@@ -41,39 +43,24 @@ function tensor_umul(umat::AbstractMatrix, Γ::AbstractArray{<:Number, 3})
     Γ_new
 end
 
-#---------------------------------------------------------------------------------------------------
+"""
+    tensor_umul(umat, Γ)
+
+Contraction of:
+    |
+    U
+    |
+  --Γ--
+    |
+"""
+function tensor_umul(umat::AbstractMatrix, Γ::AbstractArray{<:Number, 4})
+    @tensor Γ_new[:] := umat[-2,1] * Γ[-1,1,-3,-4]
+    Γ_new
+end
+
+#-------------------------------------------------------------------------------------------
 # Tensor Grouping
-#---------------------------------------------------------------------------------------------------
-"""
-    tensor_group_2(ΓA, ΓB)
-
-Contraction:
-    |  |           |
-  --Γ--Γ--  ==>  --Γs--
-"""
-function tensor_group_2(ΓA::AbstractArray{<:Number, 3}, ΓB::AbstractArray{<:Number, 3})
-    α, d1, χ = size(ΓA)
-    d2 = size(ΓB, 2)
-    β = size(ΓB, 3)
-    tensor = reshape(ΓA, α*d1, χ) * reshape(ΓB, χ, d2*β)
-    reshape(tensor, α, d1*d2, β)
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    tensor_group_3(ΓA, ΓB, ΓC)
-
-Contraction:
-    |  |  |           |
-  --Γ--Γ--Γ--  ==>  --Γs--
-"""
-function tensor_group_3(ΓA::AbstractArray, ΓB::AbstractArray, ΓC::AbstractArray)
-    α, β = size(ΓA, 1), size(ΓC, 3)
-    χ1, χ2 = size(ΓA, 3), size(ΓB, 3)
-    tensor = reshape(ΓA, :, χ1) * reshape(ΓB, χ1, :)
-    tensor = reshape(tensor, :, χ2) * reshape(ΓC, χ2, :)
-    reshape(tensor, α, :, β)
-end
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 """
     tensor_group(Γs)
 
@@ -92,9 +79,42 @@ function tensor_group(Γs::AbstractVector{<:AbstractArray{<:Number, 3}})
     reshape(tensor, α, :, β)
 end
 
-#---------------------------------------------------------------------------------------------------
+"""
+    tensor_group(Γs)
+
+Contraction:
+    |  |   ...   |           |
+  --Γ--Γ-- ... --Γ--  ==>  --Γs--
+    |  |         |           |
+"""
+function tensor_group(Γs::AbstractVector{<:AbstractArray{<:Number, 4}})
+    tensor = Γs[1]
+    D1, d1, d2, _ = size(tensor)
+    n = length(Γs)
+    for i in 2:n
+        χ, d21, d22, _ = size(Γs[i])
+        tensor = reshape(tensor, :, χ) * reshape(Γs[i], χ, :)
+        tensor = reshape(tensor, D1, d1, d2, d21, d22, :)
+        tensor = PermutedDimsArray(tensor, [1,2,4,3,5,6])
+        d1 *= d21
+        d2 *= d22
+    end
+    α, β = size(Γs[1], 1), size(Γs[n], 4)
+    reshape(tensor, α, d1, d2, β)
+end
+
+#-------------------------------------------------------------------------------------------
 # Tensor Decomposition
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
+function _try_svd(m)
+    try
+        return svd(m)
+    catch
+        @warn "DivideAndConquer() failed, use QRIteration() instead"
+        return svd(m; alg = LinearAlgebra.QRIteration())
+    end
+end
+
 """
     svd_trim(mat; maxdim, cutoff, renormalize)
 
@@ -113,7 +133,16 @@ function svd_trim(
     cutoff::Real=CUTOFF,
     renormalize::Bool=false
 )
-    res = svd(mat)
+    # res = svd(mat)
+    res = try
+        _try_svd(mat)
+    catch e
+        fn = tempname() * "_mat.jld2"
+        save(fn, "mat", mat)
+        println(*(fill("=",42)...))
+        println("svd error! mat saved to $fn")
+        rethrow(e)
+    end
     vals = res.S
     (maxdim > length(vals)) && (maxdim = length(vals))
     len::Int64 = 1
@@ -137,7 +166,8 @@ function svd_trim(
     end
     U, S, V
 end
-#---------------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------
 """
     tensor_svd(T; maxdim, curoff, renormalize)
 
@@ -163,7 +193,37 @@ function tensor_svd(
     V = reshape(v, :, d2, β)
     U, S, V
 end
-#---------------------------------------------------------------------------------------------------
+
+"""
+    tensor_svd(T; maxdim, curoff, renormalize)
+
+Tensor SVD with compression:
+    |   |           |     |
+  --BLOCK--  ==>  --U--S--V--
+    |   |           |     |
+
+Parameters:
+-----------
+- T          : 6-leg tensor
+- maxdim     : the maximum number of singular values to keep
+- cutoff     : set the desired truncation error of the SVD
+- renormalize: renormalize the singular values
+"""
+function tensor_svd(
+    T::AbstractArray{<:Number, 6};
+    maxdim=MAXDIM,
+    cutoff=CUTOFF,
+    renormalize=false
+)
+    α, d11, d12, d21, d22, β = size(T)
+    mat = reshape(T, α*d11*d12, :)
+    u, S, v = svd_trim(mat; maxdim, cutoff, renormalize)
+    U = reshape(u, α, d11, d12, :)
+    V = reshape(v, :, d21, d22, β)
+    U, S, V
+end
+
+#-------------------------------------------------------------------------------------------
 """
     tensor_decomp!(Γ, λl, n; maxdim, cutoff, renormalize)
 
@@ -207,146 +267,52 @@ function tensor_decomp!(
     Γs, λs
 end
 
-
-
-#---------------------------------------------------------------------------------------------------
-# General transfer matrix
-#---------------------------------------------------------------------------------------------------
 """
-    gtrm(T1, T2)
+    tensor_decomp!(Γ, λl, n; maxdim, cutoff, renormalize)
 
-General transfer matrix:
-  2 ---Ā--- 4
-       |
-  1 ---B--- 3
-"""
-function gtrm(T1::AbstractArray{<:Number, 3}, T2::AbstractArray{<:Number, 3})
-    i1, j1, k1 = size(T2)
-    i2, j2, k2 = size(T1)
-    T1c = conj(T1)
-    ctype = promote_type(eltype(T1c), eltype(T2))
-    transfer_mat = Array{ctype, 4}(undef, i1, i2, k1, k2)
-    @tensor transfer_mat[:] = T1c[-2,1,-4] * T2[-1,1,-3]
-    reshape(transfer_mat, i1*i2, :)
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    gtrm(T1s, T2s)
+Multiple decomposition:
+    |              |   |        |
+  --Γ--  ==> --λl--Γ₁--Γ₂-- ⋯ --Γₙ--
+    |              |   |        |
+where:
+    |          |
+  --Γₙ--  =  --Aₙ--λₙ--
+    |          |
 
-General transfer matrix:
-  2 ---Ā₁---Ā₂- ⋯ -Āₙ--- 4
-       |    |      |
-  1 ---B₁---B₂- ⋯ -Bₙ--- 3
+Return list tensor list [Γ₁,⋯,Γₙ], and values list [λ₁,⋯,λₙ₋₁].
 """
-function gtrm(
-    T1s::AbstractVector{<:AbstractArray{<:Number, 3}},
-    T2s::AbstractVector{<:AbstractArray{<:Number, 3}}
+function tensor_decomp!(
+    Γ::AbstractArray{<:Number, 4},
+    λl::AbstractVector{<:Real},
+    n::Integer;
+    maxdim=MAXDIM,
+    cutoff=CUTOFF,
+    renormalize=false
 )
-    n = length(T1s)
-    M = gtrm(T1s[1], T2s[1])
-    for i in 2:n
-        M = M * gtrm(T1s[i], T2s[i])
+    α, d1, _, β = size(Γ)
+    d = round(Int, d1^(1/n))
+    Γs = Vector{Array{eltype(Γ), 4}}(undef, n)
+    λs = Vector{Vector{eltype(λl)}}(undef, n-1)
+    Ti, λi = Γ, λl
+    for i=1:n-2
+        Ti = reshape(Ti, α, d, div(d1,d), d, div(d1,d), β)
+        Ti = PermutedDimsArray(Ti, [1,2,4,3,5,6])
+        Ai, Λ, Ti = tensor_svd(Ti; maxdim, cutoff, renormalize)
+        tensor_lmul!(1 ./ λi, Ai)
+        tensor_rmul!(Ai, Λ)
+        tensor_lmul!(Λ, Ti)
+        Γs[i] = Ai
+        λs[i] = Λ
+        λi = Λ
+        d1 = div(d1, d)
     end
-    M
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    trm(T::AbstractArray{<:Number, 3})
-
-Transfer matrix for MPS tensor `T`.
-"""
-function trm(T::AbstractArray{<:Number, 3})
-    gtrm(T, T)
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    otrm(T1::AbstractArray, O::AbstractMatrix, T2::AbstractArray)
-
-Operator transfer matrix
-  2 ---Ā--- 4
-       |
-       O
-       |
-  1 ---B--- 3
-"""
-function otrm(
-    T1::AbstractArray{<:Number, 3},
-    O::AbstractMatrix{<:Number},
-    T2::AbstractArray{<:Number, 3}
-)
-    i1, j1, k1 = size(T2)
-    i2, j2, k2 = size(T1)
-    T1c = conj(T1)
-    ctype = promote_type(eltype(T1c), eltype(O), eltype(T2))
-    transfer_mat = Array{ctype, 4}(undef, i1, i2, k1, k2)
-    @tensor transfer_mat[:] = T1c[-2,1,-4] * O[1,2] * T2[-1,2,-3]
-    reshape(transfer_mat, i1*i2, :)
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    otrm(T1s::AbstractVector, O::AbstractMatrix, T2s::AbstractVector)
-
-Operator transfer matrix
-  2 ---Ā₁---Ā₂- ⋯ -Āₙ--- 4
-       |    |      |
-       O    O   ⋯  O
-       |    |      |
-  1 ---B₁---B₂- ⋯ -Bₙ--- 3
-"""
-function otrm(
-    T1s::AbstractVector{<:AbstractArray{<:Number, 3}},
-    O::AbstractMatrix{<:Number},
-    T2s::AbstractVector{<:AbstractArray{<:Number, 3}}
-)
-    n = length(T1s)
-    M = otrm(T1s[1], O, T2s[1])
-    for i=2:n
-        M = M * otrm(T1s[i], O, T2s[i])
-    end
-    M
-end
-#---------------------------------------------------------------------------------------------------
-"""
-    otrm(T1s::AbstractVector, Os::AbstractVector, T2s::AbstractVector)
-
-Operator transfer matrix
-  2 ---Ā₁---Ā₂- ⋯ -Āₙ--- 4
-       |    |      |
-       O₁   O₂  ⋯  Oₙ
-       |    |      |
-  1 ---B₁---B₂- ⋯ -Bₙ--- 3
-"""
-function otrm(
-    T1s::AbstractVector{<:AbstractArray{<:Number, 3}},
-    Os::AbstractVector{<:AbstractMatrix{<:Number}},
-    T2s::AbstractVector{<:AbstractArray{<:Number, 3}}
-)
-    n = length(T1s)
-    M = otrm(T1s[1], Os[1], T2s[1])
-    for i=2:n
-        M = M * otrm(T1s[i], Os[i], T2s[i])
-    end
-    M
-end
-
-#---------------------------------------------------------------------------------------------------
-# Multi-Site Operators
-#---------------------------------------------------------------------------------------------------
-"""
-    convert_operator(mat, d, n)
-
-Convert dⁿ×dⁿ matrix that's compatible to the column-major convention
-"""
-function convert_operator(mat::AbstractMatrix, d::Integer, n::Integer)
-    tensor = reshape(mat, fill(d, 2n)...)
-    perm = [n:-1:1; 2n:-1:n+1]
-    tensor = permutedims(tensor, perm)
-    reshape(tensor, size(mat))
-end
-#---------------------------------------------------------------------------------------------------
-# Normalization
-#---------------------------------------------------------------------------------------------------
-function tensor_renormalize!(Γ::Array{<:Number, 3})
-    Γ_norm = sqrt(inner_product(Γ))
-    Γ ./= Γ_norm
+    Ti = reshape(Ti, α, d, div(d1,d), d, div(d1,d), β)
+    Ti = PermutedDimsArray(Ti, [1,2,4,3,5,6])
+    Ai, Λ, Ti = tensor_svd(Ti; maxdim, cutoff, renormalize)
+    tensor_lmul!(1 ./ λi, Ai)
+    tensor_rmul!(Ai, Λ)
+    Γs[n-1] = Ai
+    λs[n-1] = Λ
+    Γs[n] = Ti
+    Γs, λs
 end

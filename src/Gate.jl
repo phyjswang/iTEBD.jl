@@ -1,6 +1,6 @@
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 # QUANTUM GATE
-#---------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 """
     tensor_applygate!(G, Γs, λl; keywords...)
 
@@ -17,13 +17,18 @@ Return list tensor list [Γ₁,⋯,Γₙ], and values list [λ₁,⋯,λₙ₋�
 """
 function tensor_applygate!(
     G::AbstractMatrix{<:Number},
-    Γs::AbstractVector{<:AbstractArray{<:Number, 3}},
+    Γs::AbstractVector{<:AbstractArray{<:Number}},
     λl::AbstractVector{<:Number};
-    maxdim=MAXDIM, cutoff=CUTOFF, renormalize=false
+    maxdim=MAXDIM,
+    cutoff=CUTOFF,
+    renormalize=false
 )
     n = length(Γs)
     if n == 1
-        GΓ = tensor_umul(G, Γs[1])
+        error("1-site gate not implemented!")
+        Γ = Γs[1]
+        tensor_lmul!(λl, Γ)
+        GΓ = tensor_umul(G, Γ)
         return [GΓ], typeof(λl)[]
     end
     Γ = tensor_group(Γs)
@@ -31,16 +36,21 @@ function tensor_applygate!(
     GΓ = tensor_umul(G, Γ)
     tensor_decomp!(GΓ, λl, n; maxdim, cutoff, renormalize)
 end
-#---------------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------
 export applygate!
 function applygate!(
-    ψ::iMPS, G::AbstractMatrix,
-    i::Integer, j::Integer;
-    maxdim=MAXDIM, cutoff=CUTOFF, renormalize=false
+    ψ::abstractiMPS,
+    G::AbstractMatrix,
+    i::Integer,
+    j::Integer;
+    maxdim=MAXDIM,
+    cutoff=CUTOFF,
+    renormalize=false
 )
     inds = j>i ? collect(i:j) : [i:ψ.n; 1:j]
     Γs = ψ.Γ[inds]
-    λl = ψ.λ[mod(i-2,ψ.n)+1]
+    λl = ψ.λ[mod(i-2,ψ.n)+1] # the left bond of Γ used
     Γs, λs = tensor_applygate!(G, Γs, λl; maxdim, cutoff, renormalize)
     push!(λs, ψ.λ[j])
     for i in eachindex(inds)
