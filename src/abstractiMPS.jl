@@ -48,7 +48,7 @@ end
 export normalize!
 function normalize!(mps::abstractiMPS, i)
     ni = maximum(mps.λ[i])
-    mps[i] = mps.Γ[i], mps.λ[i]/ni
+    mps[i] = mps.Γ[i]/ni, mps.λ[i]/ni
     ni
 end
 
