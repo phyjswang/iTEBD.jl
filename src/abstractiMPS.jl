@@ -53,8 +53,15 @@ function normalize!(mps::abstractiMPS, i)
 end
 
 #-------------------------------------------------------------------------------------------
-function ent_S(mps::abstractiMPS, i::Integer)
+export getEE
+function getEE(mps::abstractiMPS, i::Integer)
     j = mod(i-1, mps.n) + 1
     ρ = mps.λ[j] .^ 2
     entanglement_entropy(ρ)
+end
+
+#-------------------------------------------------------------------------------------------
+export getmaxD
+function getmaxD(mps::abstractiMPS{N, T}) where {N, T}
+    maximum([size(mps.λ[i],1) for i in 1:mps.n])
 end
