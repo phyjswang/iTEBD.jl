@@ -39,8 +39,8 @@ Contraction of:
   --Γ--
 """
 function tensor_umul(umat::AbstractMatrix, Γ::AbstractArray{<:Number, 3})
-    @tensor Γ_new[:] := umat[-2,1] * Γ[-1,1,-3]
-    Γ_new
+    @tensor Γ[:] := umat[-2,1] * Γ[-1,1,-3]
+    Γ
 end
 
 """
@@ -54,8 +54,8 @@ Contraction of:
     |
 """
 function tensor_umul(umat::AbstractMatrix, Γ::AbstractArray{<:Number, 4})
-    @tensor Γ_new[:] := umat[-2,1] * Γ[-1,1,-3,-4]
-    Γ_new
+    @tensor Γ[:] := umat[-2,1] * Γ[-1,1,-3,-4]
+    Γ
 end
 
 #-------------------------------------------------------------------------------------------

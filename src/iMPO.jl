@@ -98,13 +98,9 @@ export tmv
     ----     ----
 """
 function tmv(mps::iMPO, v::Array{<:Number, 2})
-    ctype = promote_type(eltype.(mps.Γ)...)
     for i in mps.n:-1:1
         Γ = mps.Γ[i]
-        α = size(Γ, 1)
-        vnew = Array{ctype, 2}(undef, α, α)
-        @tensor vnew[:] = Γ[-1, 1, 2, 3] * v[3, 4] * conj(Γ)[-2, 1, 2, 4]
-        v = vnew
+        @tensor v[:] := (Γ[-1, 1, 2, 3] * v[3, 4]) * conj(Γ)[-2, 1, 2, 4]
     end
     v
 end

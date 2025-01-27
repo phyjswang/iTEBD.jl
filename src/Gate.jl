@@ -24,13 +24,6 @@ function tensor_applygate!(
     renormalize=false
 )
     n = length(Γs)
-    if n == 1
-        error("1-site gate not implemented!")
-        Γ = Γs[1]
-        tensor_lmul!(λl, Γ)
-        GΓ = tensor_umul(G, Γ)
-        return [GΓ], typeof(λl)[]
-    end
     Γ = tensor_group(Γs)
     tensor_lmul!(λl, Γ)
     GΓ = tensor_umul(G, Γ)
