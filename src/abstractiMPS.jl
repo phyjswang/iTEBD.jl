@@ -3,7 +3,7 @@ abstract type abstractiMPS{N, T<:Number} end
 #-------------------------------------------------------------------------------------------
 # BASIC PROPERTIES
 #-------------------------------------------------------------------------------------------
-get_data(mps::abstractiMPS) = mps.Γ, mps.λ, mps.n
+get_data(mps::abstractiMPS{N, T}) where {N, T<:Number} = mps.Γ, mps.λ, mps.n
 eltype(::abstractiMPS{N, T}) where {N, T<:Number} = T
 
 #-------------------------------------------------------------------------------------------
