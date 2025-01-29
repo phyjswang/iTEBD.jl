@@ -138,7 +138,7 @@ function svd_trim(
         _try_svd(mat)
     catch e
         fn = tempname() * "_mat.jld2"
-        save(fn, "mat", mat)
+        FileIO.save(fn, "mat", mat)
         println(*(fill("=",42)...))
         println("svd error! mat saved to $fn")
         rethrow(e)

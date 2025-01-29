@@ -1,10 +1,10 @@
-abstract type abstractiMPS{N, T} end
+abstract type abstractiMPS{N, T<:Number} end
 
 #-------------------------------------------------------------------------------------------
 # BASIC PROPERTIES
 #-------------------------------------------------------------------------------------------
 get_data(mps::abstractiMPS) = mps.Γ, mps.λ, mps.n
-eltype(::abstractiMPS{N, T}) where {N, T} = T
+eltype(::abstractiMPS{N, T}) where {N, T<:Number} = T
 
 #-------------------------------------------------------------------------------------------
 function getindex(mps::abstractiMPS, i::Integer)
@@ -17,20 +17,10 @@ function setindex!(
     mps::abstractiMPS{N, T},
     v::Tuple{<:AbstractArray{<:Number, N}, <:AbstractVector{<:Real}},
     i::Integer
-) where {N, T}
+) where {N, T<:Number}
     i = mod(i-1, mps.n) + 1
     mps.Γ[i] = v[1]
     mps.λ[i] = v[2]
-end
-
-#-------------------------------------------------------------------------------------------
-function mps_promote_type(
-    T::DataType,
-    mps::abstractiMPS
-)
-    Γ, λ, n = get_data(mps)
-    Γ_new = Array{T}.(Γ)
-    typeof(mps)(Γ_new, λ, n)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -62,6 +52,6 @@ end
 
 #-------------------------------------------------------------------------------------------
 export getmaxD
-function getmaxD(mps::abstractiMPS{N, T}) where {N, T}
+function getmaxD(mps::abstractiMPS{N, T}) where {N, T<:Number}
     maximum([size(mps.λ[i],1) for i in 1:mps.n])
 end

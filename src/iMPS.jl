@@ -41,6 +41,17 @@ function iMPS(Γs::AbstractVector{<:AbstractArray{<:Number, 3}})
 end
 
 #-------------------------------------------------------------------------------------------
+export mps_promote_type
+function mps_promote_type(
+    T1::DataType,
+    mps::iMPS{T}
+) where T<:Number
+    Γ, λ, n = get_data(mps)
+    Γ_new = Array{T1}.(Γ)
+    iMPS(Γ_new, λ, n)
+end
+
+#-------------------------------------------------------------------------------------------
 # INITIATE MPS
 #
 # 1. rand_iMPS    : Randomly generate iMPS with given bond dimension.

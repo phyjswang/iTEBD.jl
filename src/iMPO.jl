@@ -46,6 +46,18 @@ function iMPO(Γs::AbstractVector{<:AbstractArray{<:Number, 4}})
 end
 
 #-------------------------------------------------------------------------------------------
+export mpo_promote_type
+function mpo_promote_type(
+    T1::DataType,
+    mpo::iMPO{T}
+) where T<:Number
+    Γ, λ, n = get_data(mpo)
+    Γ_new = Array{T1}.(Γ)
+    iMPO(Γ_new, λ, n)
+end
+
+
+#-------------------------------------------------------------------------------------------
 # INITIATE MPO
 #
 # 1. rand_iMPO    : Randomly generate iMPO with given bond dimension.
@@ -101,6 +113,24 @@ function tmv(mps::iMPO, v::Array{<:Number, 2})
     for i in mps.n:-1:1
         Γ = mps.Γ[i]
         @tensor v[:] := (Γ[-1, 1, 2, 3] * v[3, 4]) * conj(Γ)[-2, 1, 2, 4]
+    end
+    v
+end
+
+"""
+    -----     -----
+   |     |   |     |
+ --Γ0A* -+-- Γ0B* -+----
+   |     |   |     |    [v]
+ --+----Γ1A--+----Γ1B---
+   |     |   |     |
+    -----     -----
+"""
+function tmv(mps1::iMPO, mps0::iMPO, v::Array{<:Number, 2})
+    for i in mps1.n:-1:1
+        Γ1 = mps1.Γ[i]
+        Γ0 = mps0.Γ[i]
+        @tensor v[:] := (Γ1[-1, 1, 2, 3] * v[3, 4]) * conj(Γ0)[-2, 1, 2, 4]
     end
     v
 end
