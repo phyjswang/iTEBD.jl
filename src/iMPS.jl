@@ -88,3 +88,20 @@ function product_iMPS(v::AbstractVector{<:AbstractVector{<:Number}})
     T = promote_type(eltype.(v)...)
     product_iMPS(T, v)
 end
+
+#-------------------------------------------------------------------------------------------
+# transfer matrix related
+#-------------------------------------------------------------------------------------------
+"""
+ - ΓA - ΓB --...--
+   |    |        [v]
+ - ΓA - ΓB --...--
+"""
+export tmv_noconj
+function tmv_noconj(mps::iMPS, v::Array{<:Number, 2})
+    for i in mps.n:-1:1
+        Γ = mps.Γ[i]
+        @tensor v[:] := Γ[-1, 3, 1] * v[1, 2] * Γ[-2, 3, 2]
+    end
+    v
+end
